@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedRequest, unauthorized } from "@/lib/security/http";
-import { testIntegration } from "@/lib/services/integration-service";
+import { startOutreach } from "@/lib/services/outreach-service";
 
 export async function POST(request: Request) {
   if (!isAuthorizedRequest(request, "webhook")) return unauthorized();
   const body = await request.json().catch(() => ({}));
-  return NextResponse.json({ data: await testIntegration(body.type ?? "openai") });
+  return NextResponse.json({ data: await startOutreach(body) });
 }

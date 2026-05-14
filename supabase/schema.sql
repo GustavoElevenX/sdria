@@ -222,6 +222,21 @@ create table if not exists experiments (
   updated_at timestamp default now()
 );
 
+create table if not exists automation_jobs (
+  id uuid primary key default uuid_generate_v4(),
+  company_id uuid references companies(id),
+  lead_id uuid references leads(id),
+  conversation_id uuid references conversations(id),
+  type text not null,
+  status text not null default 'pending',
+  scheduled_at timestamp not null,
+  attempt int default 0,
+  payload jsonb default '{}'::jsonb,
+  last_error text,
+  created_at timestamp default now(),
+  updated_at timestamp default now()
+);
+
 create table if not exists integrations (
   id uuid primary key default uuid_generate_v4(),
   company_id uuid references companies(id),
@@ -240,6 +255,7 @@ create unique index if not exists integrations_company_type_unique on integratio
 create index if not exists leads_company_status_idx on leads(company_id, status);
 create index if not exists messages_conversation_created_idx on messages(conversation_id, created_at);
 create index if not exists learning_insights_company_status_idx on learning_insights(company_id, status);
+create index if not exists automation_jobs_due_idx on automation_jobs(company_id, status, scheduled_at);
 create index if not exists knowledge_chunks_embedding_idx on knowledge_chunks using ivfflat (embedding vector_cosine_ops);
 
 create or replace function match_knowledge_chunks(

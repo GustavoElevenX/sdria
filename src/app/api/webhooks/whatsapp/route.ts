@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthorizedRequest, unauthorized } from "@/lib/security/http";
 import { createLead } from "@/lib/services/lead-service";
 import { getOrCreateConversation } from "@/lib/services/conversation-service";
 import { handleIncomingLeadMessage } from "@/lib/services/agent-service";
@@ -14,6 +15,7 @@ export function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!isAuthorizedRequest(request, "webhook")) return unauthorized();
   const rawBody = await request.text();
   const validSignature = await verifyWhatsappSignature(request, rawBody);
   if (!validSignature) return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });

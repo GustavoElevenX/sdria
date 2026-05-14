@@ -1,8 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 
+export function isProductionBuildPhase() {
+  return process.env.NEXT_PHASE === "phase-production-build";
+}
+
 export function isSupabaseConfigured() {
-  return Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
+  return !isProductionBuildPhase() && Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
 export function getSupabaseAdmin() {

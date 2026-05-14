@@ -1,10 +1,13 @@
 import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel, PanelHeader } from "@/components/ui/panel";
+import { SchedulingRulesForm } from "@/components/SchedulingRulesForm";
 import { checkCalendarAvailability, getDefaultCalendarDateRange } from "@/lib/services/calendar-service";
+import { getAgentSettings } from "@/lib/services/settings-service";
 
 export default async function AgendaPage() {
   const range = getDefaultCalendarDateRange();
+  const settings = await getAgentSettings();
   const availability = await checkCalendarAvailability("closer-default", {
     start: range.start,
     end: range.end
@@ -18,14 +21,7 @@ export default async function AgendaPage() {
       <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
         <Panel>
           <PanelHeader title="Regras configuráveis" />
-          <div className="grid gap-3 p-4 text-sm">
-            {["Duração padrão da reunião", "Dias disponíveis", "Horários disponíveis", "Tempo mínimo de antecedência", "Intervalo entre reuniões", "Título padrão", "Descrição padrão", "Participantes internos", "Link online"].map((rule) => (
-              <label key={rule} className="grid gap-1">
-                <span>{rule}</span>
-                <input className="h-9 rounded-md border border-border px-3 outline-none focus:border-primary" />
-              </label>
-            ))}
-          </div>
+          <SchedulingRulesForm settings={settings} />
         </Panel>
         <Panel>
           <PanelHeader title="Horários sugeridos pela IA" action={<Button><CalendarDays size={16} /> Conectar Google</Button>} />

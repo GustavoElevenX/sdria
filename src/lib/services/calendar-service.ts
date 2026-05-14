@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
-import { getCompanyId, getSupabaseAdmin } from "@/lib/supabase/server";
+import { getAgentSettings } from "@/lib/services/settings-service";
+import { getCompanyId, getSupabaseAdmin, isProductionBuildPhase } from "@/lib/supabase/server";
 
 async function getGoogleAccessToken() {
   if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REFRESH_TOKEN) {
@@ -23,7 +24,7 @@ async function getGoogleAccessToken() {
 }
 
 export async function checkCalendarAvailability(userId: string, dateRange: { start: string; end: string }) {
-  if (!env.GOOGLE_REFRESH_TOKEN) {
+  if (isProductionBuildPhase() || !env.GOOGLE_REFRESH_TOKEN) {
     return {
       userId,
       dateRange,
@@ -51,11 +52,18 @@ export async function checkCalendarAvailability(userId: string, dateRange: { sta
   const data = await response.json();
   const busy = data.calendars?.primary?.busy ?? [];
 
+  const settings = await getAgentSettings();
+  const rules = settings.schedulingRules as Record<string, any>;
+
   return {
     userId,
     dateRange,
     busy,
-    slots: deriveOpenSlots(dateRange.start, dateRange.end, busy),
+    slots: deriveOpenSlots(dateRange.start, dateRange.end, busy, {
+      durationMinutes: Number(rules.defaultDurationMinutes ?? 45),
+      bufferMinutes: Number(rules.bufferMinutes ?? 0),
+      allowedHours: String(rules.availableHours ?? "09:00-18:00")
+    }),
     configured: true
   };
 }
@@ -67,7 +75,7 @@ export function getDefaultCalendarDateRange() {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
-function deriveOpenSlots(start: string, end: string, busy: Array<{ start: string; end: string }>) {
+function deriveOpenSlots(start: string, end: string, busy: Array<{ start: string; end: string }>, rules = { durationMinutes: 45, bufferMinutes: 0, allowedHours: "09:00-18:00" }) {
   const slots: Array<{ startsAt: string; endsAt: string }> = [];
   const cursor = new Date(start);
   cursor.setMinutes(0, 0, 0);
@@ -76,18 +84,20 @@ function deriveOpenSlots(start: string, end: string, busy: Array<{ start: string
   while (cursor < endDate && slots.length < 12) {
     const hour = cursor.getHours();
     const day = cursor.getDay();
-    if (day >= 1 && day <= 5 && hour >= 9 && hour <= 17) {
-      const slotEnd = new Date(cursor.getTime() + 45 * 60 * 1000);
+    const [startHour, endHour] = rules.allowedHours.split("-").map((item) => Number(item.split(":")[0]));
+    if (day >= 1 && day <= 5 && hour >= startHour && hour < endHour) {
+      const slotEnd = new Date(cursor.getTime() + rules.durationMinutes * 60 * 1000);
       const overlaps = busy.some((item) => new Date(item.start) < slotEnd && new Date(item.end) > cursor);
       if (!overlaps) slots.push({ startsAt: cursor.toISOString(), endsAt: slotEnd.toISOString() });
     }
-    cursor.setMinutes(cursor.getMinutes() + 60);
+    cursor.setMinutes(cursor.getMinutes() + rules.durationMinutes + rules.bufferMinutes);
   }
 
   return slots;
 }
 
 export async function createCalendarEvent(data: Record<string, any>) {
+  if (isProductionBuildPhase()) throw new Error("Calendar indisponível durante build");
   if (!env.GOOGLE_REFRESH_TOKEN) throw new Error("GOOGLE_REFRESH_TOKEN ausente");
   const accessToken = await getGoogleAccessToken();
 

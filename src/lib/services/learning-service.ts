@@ -1,5 +1,8 @@
 import { getCompanyId, getSupabaseAdmin } from "@/lib/supabase/server";
 import { mapLearningInsight } from "@/lib/supabase/mappers";
+import { createExperiment } from "@/lib/services/experiment-service";
+import { upsertKnowledgeDocument } from "@/lib/services/knowledge-search-service";
+import { upsertMessageTemplate } from "@/lib/services/template-service";
 
 export async function getLearningInsights() {
   const supabase = getSupabaseAdmin();
@@ -16,7 +19,7 @@ export async function getLearningInsights() {
   return (data ?? []).map(mapLearningInsight);
 }
 
-export async function approveLearningInsight(id: string) {
+export async function approveLearningInsight(id: string, action?: "create_template" | "create_knowledge" | "create_experiment") {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error("Supabase não configurado");
 
@@ -28,7 +31,40 @@ export async function approveLearningInsight(id: string) {
     .single();
 
   if (error) throw error;
-  return mapLearningInsight(data);
+  const insight = mapLearningInsight(data);
+  if (action) await applyApprovedInsight(insight, action);
+  return insight;
+}
+
+export async function applyApprovedInsight(insight: ReturnType<typeof mapLearningInsight>, action: "create_template" | "create_knowledge" | "create_experiment") {
+  if (action === "create_template") {
+    return upsertMessageTemplate({
+      name: `Variação sugerida - ${insight.type}`,
+      category: "follow_up",
+      content: insight.recommendation,
+      stageTarget: String(insight.evidence.stage ?? ""),
+      active: false,
+      approvedOnWhatsapp: false
+    });
+  }
+  if (action === "create_knowledge") {
+    return upsertKnowledgeDocument({
+      title: `Insight aprovado - ${insight.summary}`,
+      type: "Playbook comercial",
+      content: `${insight.summary}\n\n${insight.recommendation}`,
+      tags: ["aprendizado", insight.type],
+      active: true
+    });
+  }
+  return createExperiment({
+    name: `Teste A/B - ${insight.summary}`,
+    hypothesis: insight.recommendation,
+    status: "draft",
+    variants: [
+      { id: "a", name: "Controle", source: "current_playbook" },
+      { id: "b", name: "Variação sugerida", content: insight.recommendation }
+    ]
+  });
 }
 
 export async function rejectLearningInsight(id: string) {
@@ -121,6 +157,18 @@ export async function runDailyLearningAnalysis() {
         summary: `O template ${best.name} teve a melhor taxa de resposta do período.`,
         evidence: { templateId: best.id, sent: best.sent, replies: best.replies, responseRate: best.rate },
         recommendation: `Priorizar ${best.name} em segmentos/etapas similares e criar uma variação para teste A/B.`
+      })
+    );
+  }
+
+  const worst = [...rankedTemplates].reverse()[0];
+  if (worst && worst.sent >= 3 && worst.rate < 0.15) {
+    generatedInsights.push(
+      await createInsight({
+        type: "low_response_message",
+        summary: `O template ${worst.name} teve baixa taxa de resposta.`,
+        evidence: { templateId: worst.id, sent: worst.sent, replies: worst.replies, responseRate: worst.rate },
+        recommendation: `Criar nova variação mais curta e com contexto específico para substituir ${worst.name} em teste A/B.`
       })
     );
   }

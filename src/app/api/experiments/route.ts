@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedRequest, unauthorized } from "@/lib/security/http";
-import { getAgentSettings, updateAgentSettings } from "@/lib/services/settings-service";
+import { createExperiment, getExperiments } from "@/lib/services/experiment-service";
 
 export async function GET(request: Request) {
   if (!isAuthorizedRequest(request, "webhook")) return unauthorized();
-  return NextResponse.json({ data: await getAgentSettings() });
+  return NextResponse.json({ data: await getExperiments() });
 }
 
-export async function PATCH(request: Request) {
+export async function POST(request: Request) {
   if (!isAuthorizedRequest(request, "webhook")) return unauthorized();
   const body = await request.json().catch(() => ({}));
-  return NextResponse.json({ data: await updateAgentSettings(body) });
+  return NextResponse.json({ data: await createExperiment(body) }, { status: 201 });
 }

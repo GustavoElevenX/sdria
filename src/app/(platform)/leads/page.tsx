@@ -1,5 +1,6 @@
 import { Filter, Pause, Play, Upload, UserPlus } from "lucide-react";
 import { LeadTable } from "@/components/LeadTable";
+import { OutreachStartButton } from "@/components/OutreachStartButton";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { getLeads } from "@/lib/services/lead-service";
@@ -18,6 +19,7 @@ export default async function LeadsPage() {
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary"><Upload size={16} /> Importar leads</Button>
           <Button><Play size={16} /> Analisar com IA</Button>
+          <OutreachStartButton />
           <Button variant="secondary"><Pause size={16} /> Pausar IA</Button>
           <Button variant="secondary"><UserPlus size={16} /> Responsável</Button>
         </div>
