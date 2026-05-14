@@ -1,11 +1,10 @@
 import { LearningInsightCard } from "@/components/LearningInsightCard";
 import { MetricCard } from "@/components/MetricCard";
 import { Panel, PanelHeader } from "@/components/ui/panel";
-import { getLearningInsights, runDailyLearningAnalysis } from "@/lib/services/learning-service";
+import { getLearningInsights } from "@/lib/services/learning-service";
 
-export default function LearningPage() {
-  const insights = getLearningInsights();
-  const analysis = runDailyLearningAnalysis();
+export default async function LearningPage() {
+  const insights = await getLearningInsights();
   return (
     <div className="space-y-5">
       <div>
@@ -13,8 +12,8 @@ export default function LearningPage() {
         <p className="text-sm text-muted-foreground">Padrões de conversas, mensagens, cases, objeções e sugestões aprováveis.</p>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
-        <MetricCard label="Mensagens analisadas" value={analysis.analyzedMessages.toString()} />
-        <MetricCard label="Taxa de resposta do recorte" value={`${Math.round(analysis.responseRate * 100)}%`} />
+        <MetricCard label="Insights registrados" value={insights.length.toString()} />
+        <MetricCard label="Aprovados" value={insights.filter((item) => item.status === "approved").length.toString()} />
         <MetricCard label="Sugestões pendentes" value={insights.filter((item) => item.status === "pending").length.toString()} />
       </div>
       <Panel>

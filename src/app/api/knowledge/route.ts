@@ -1,20 +1,15 @@
 import { NextResponse } from "next/server";
-import { knowledgeDocuments } from "@/lib/mock-data";
+import { getKnowledgeDocuments, upsertKnowledgeDocument } from "@/lib/services/knowledge-search-service";
 
-export function GET() {
-  return NextResponse.json({ data: knowledgeDocuments });
+export async function GET() {
+  return NextResponse.json({ data: await getKnowledgeDocuments() });
 }
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   return NextResponse.json(
     {
-      data: {
-        id: crypto.randomUUID(),
-        ...body,
-        chunksGenerated: true,
-        embeddingsQueued: true
-      }
+      data: await upsertKnowledgeDocument(body)
     },
     { status: 201 }
   );

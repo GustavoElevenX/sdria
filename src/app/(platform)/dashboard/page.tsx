@@ -5,8 +5,8 @@ import { Panel, PanelHeader } from "@/components/ui/panel";
 import { getDashboardMetrics } from "@/lib/services/dashboard-service";
 import { formatPercent } from "@/lib/utils";
 
-export default function DashboardPage() {
-  const data = getDashboardMetrics();
+export default async function DashboardPage() {
+  const data = await getDashboardMetrics();
 
   return (
     <div className="space-y-6">
@@ -15,10 +15,10 @@ export default function DashboardPage() {
         <p className="text-sm text-muted-foreground">Visão executiva da operação, IA, funil e aprendizado.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {data.cards.map((card) => <MetricCard key={card.label} {...card} />)}
+        {data.cards.length ? data.cards.map((card) => <MetricCard key={card.label} {...card} />) : <MetricCard label="Supabase" value="não configurado" trend="preencha .env" />}
       </div>
       <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <FunnelChart data={data.funnel} />
+        <FunnelChart data={data.funnel.length ? data.funnel : [{ label: "Sem dados", value: 0 }]} />
         <Panel>
           <PanelHeader title="Taxa de resposta por dia" eyebrow="Últimos dias úteis" />
           <div className="grid grid-cols-5 items-end gap-3 p-4">

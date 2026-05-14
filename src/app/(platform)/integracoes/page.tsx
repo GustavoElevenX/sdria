@@ -1,8 +1,8 @@
 import { IntegrationStatusCard } from "@/components/IntegrationStatusCard";
 import { getIntegrations } from "@/lib/services/integration-service";
 
-export default function IntegrationsPage() {
-  const integrations = getIntegrations();
+export default async function IntegrationsPage() {
+  const integrations = await getIntegrations();
   return (
     <div className="space-y-5">
       <div>

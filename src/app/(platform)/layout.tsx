@@ -28,6 +28,8 @@ const nav = [
   { href: "/integracoes", label: "Integrações", icon: Plug }
 ];
 
+export const dynamic = "force-dynamic";
+
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">

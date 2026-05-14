@@ -1,57 +1,148 @@
+import OpenAI from "openai";
+import { zodTextFormat } from "openai/helpers/zod";
+import { z } from "zod";
 import { buildAgentPrompt } from "@/lib/ai/prompt";
-import { agentSettings, cases, knowledgeDocuments, leadContexts } from "@/lib/mock-data";
-import type { AgentDecision, Lead, Message } from "@/lib/types";
+import { env } from "@/lib/env";
+import { getCompanyId, getSupabaseAdmin } from "@/lib/supabase/server";
+import { getLeadData, markOptOut, updateLeadStage } from "@/lib/services/lead-service";
 import { searchRelevantCases } from "@/lib/services/case-search-service";
 import { searchKnowledgeBase } from "@/lib/services/knowledge-search-service";
-import { classifyLeadIntent } from "@/lib/services/message-service";
+import { getAgentSettings } from "@/lib/services/settings-service";
+import { getConversationHistory, updateConversationState } from "@/lib/services/conversation-service";
+import { saveMessage } from "@/lib/services/message-service";
+import { sendWhatsappText } from "@/lib/services/whatsapp-service";
+import type { AgentDecision, Lead, Message } from "@/lib/types";
 
-export function logAgentDecision(data: Record<string, unknown>) {
-  return {
-    id: crypto.randomUUID(),
-    runType: data.runType ?? "message_reply",
-    status: "logged",
-    data,
-    createdAt: new Date().toISOString()
-  };
+const AgentDecisionSchema = z.object({
+  message_to_send: z.string(),
+  intent: z.enum(["interested", "objection", "no_interest", "scheduling", "question", "opt_out", "unknown"]),
+  lead_stage_suggestion: z.string(),
+  should_send: z.boolean(),
+  should_escalate_to_human: z.boolean(),
+  should_schedule: z.boolean(),
+  case_used_ids: z.array(z.string()),
+  knowledge_used_ids: z.array(z.string()),
+  next_action: z.string(),
+  confidence: z.number()
+});
+
+export async function logAgentDecision(data: Record<string, unknown>) {
+  const supabase = getSupabaseAdmin();
+  const companyId = await getCompanyId();
+  if (!supabase || !companyId) return null;
+
+  const { data: saved, error } = await supabase
+    .from("agent_runs")
+    .insert({
+      company_id: companyId,
+      lead_id: data.leadId,
+      conversation_id: data.conversationId,
+      run_type: data.runType ?? "message_reply",
+      input: data.input ?? {},
+      output: data.output ?? {},
+      status: data.status ?? "completed",
+      error: data.error
+    })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return saved;
 }
 
-export function generateAgentReply(lead: Lead, history: Message[]): AgentDecision & { prompt: string } {
-  const context = leadContexts.find((item) => item.leadId === lead.id) ?? leadContexts[0];
+export async function generateAgentReply(lead: Lead, history: Message[], conversationId?: string): Promise<AgentDecision & { prompt: string }> {
+  if (!env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY ausente");
+
+  const leadData = await getLeadData(lead.id);
+  if (!leadData?.context) throw new Error("Contexto do lead não encontrado");
+
+  const settings = await getAgentSettings();
   const lastLeadMessage = [...history].reverse().find((message) => message.senderType === "lead")?.content ?? "";
-  const intent = classifyLeadIntent(lastLeadMessage);
-  const relevantCases = searchRelevantCases(lastLeadMessage, context).slice(0, 2);
-  const relevantKnowledge = searchKnowledgeBase(`${lastLeadMessage} ${context.knownObjections}`).slice(0, 3);
+  const relevantCases = await searchRelevantCases(lastLeadMessage, leadData.context);
+  const relevantKnowledge = await searchKnowledgeBase(`${lastLeadMessage} ${leadData.context.knownObjections}`);
   const prompt = buildAgentPrompt({
-    settings: agentSettings,
+    settings,
     lead,
-    context,
+    context: leadData.context,
     history,
-    cases: relevantCases.length ? relevantCases : cases.filter((caseStudy) => context.aiRecommendedCases.includes(caseStudy.id)),
-    knowledge: relevantKnowledge.length ? relevantKnowledge : knowledgeDocuments.slice(0, 2)
+    cases: relevantCases,
+    knowledge: relevantKnowledge
   });
 
-  const shouldEscalate = intent === "question" && relevantKnowledge.length === 0;
-  const shouldSchedule = intent === "scheduling" || (intent === "interested" && lead.leadScore >= 70);
-  const message =
-    intent === "objection"
-      ? "Entendi. Para eu te responder com precisão: a trava hoje é orçamento, prioridade ou confiança de que a operação vai funcionar no seu cenário?"
-      : shouldSchedule
-        ? "Perfeito. Posso te passar duas opções de horário para uma conversa rápida com o closer e validar se faz sentido?"
-        : "Entendi. Pelo seu cenário, parece que o ponto é organizar atendimento, qualificação e próximo passo dos leads. Hoje isso fica concentrado em alguém do time?";
+  const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  const response = await openai.responses.parse({
+    model: env.OPENAI_MODEL,
+    input: [
+      {
+        role: "system",
+        content: prompt
+      },
+      {
+        role: "user",
+        content: lastLeadMessage || "Gere a próxima decisão operacional para esta conversa."
+      }
+    ],
+    text: {
+      format: zodTextFormat(AgentDecisionSchema, "agent_decision")
+    }
+  });
 
-  const decision: AgentDecision = {
-    message_to_send: message,
-    intent,
-    lead_stage_suggestion: shouldSchedule ? "qualificado" : lead.stage,
-    should_send: intent !== "opt_out" && !shouldEscalate,
-    should_escalate_to_human: shouldEscalate,
-    should_schedule: shouldSchedule,
-    case_used_ids: relevantCases.map((caseStudy) => caseStudy.id),
-    knowledge_used_ids: relevantKnowledge.map((document) => document.id),
-    next_action: shouldSchedule ? "oferecer_horarios" : shouldEscalate ? "aguardar_humano" : "aguardar_resposta",
-    confidence: shouldEscalate ? 0.54 : 0.82
-  };
+  const decision = response.output_parsed;
+  if (!decision) throw new Error("OpenAI não retornou decisão estruturada");
 
-  logAgentDecision({ runType: "message_reply", leadId: lead.id, output: decision });
+  await logAgentDecision({
+    runType: "message_reply",
+    leadId: lead.id,
+    conversationId,
+    input: { prompt, history, relevantCaseIds: relevantCases.map((item) => item.id), relevantKnowledgeIds: relevantKnowledge.map((item) => item.id) },
+    output: decision
+  });
+
   return { ...decision, prompt };
+}
+
+export async function handleIncomingLeadMessage(input: { lead: Lead; conversationId: string; content: string; whatsappMessageId?: string }) {
+  await saveMessage({
+    conversationId: input.conversationId,
+    leadId: input.lead.id,
+    senderType: "lead",
+    content: input.content,
+    whatsappMessageId: input.whatsappMessageId
+  });
+
+  const history = await getConversationHistory(input.conversationId);
+  const decision = await generateAgentReply(input.lead, history, input.conversationId);
+
+  if (decision.intent === "opt_out") {
+    await markOptOut(input.lead.id);
+    await updateConversationState(input.conversationId, { status: "closed", nextAction: "Lead pediu opt-out" });
+    return decision;
+  }
+
+  if (decision.should_escalate_to_human) {
+    await updateConversationState(input.conversationId, { status: "needs_human", nextAction: decision.next_action });
+    return decision;
+  }
+
+  if (decision.lead_stage_suggestion) {
+    await updateLeadStage(input.lead.id, decision.lead_stage_suggestion);
+  }
+
+  await updateConversationState(input.conversationId, {
+    status: decision.should_schedule ? "scheduled" : "open",
+    nextAction: decision.next_action
+  });
+
+  if (decision.should_send && decision.message_to_send) {
+    const sent = await sendWhatsappText({ to: input.lead.phone, message: decision.message_to_send });
+    await saveMessage({
+      conversationId: input.conversationId,
+      leadId: input.lead.id,
+      senderType: "ai",
+      content: decision.message_to_send,
+      metadata: { whatsapp: sent, decision }
+    });
+  }
+
+  return decision;
 }

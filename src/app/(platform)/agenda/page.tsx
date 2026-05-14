@@ -1,10 +1,14 @@
 import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel, PanelHeader } from "@/components/ui/panel";
-import { checkCalendarAvailability } from "@/lib/services/calendar-service";
+import { checkCalendarAvailability, getDefaultCalendarDateRange } from "@/lib/services/calendar-service";
 
-export default function AgendaPage() {
-  const availability = checkCalendarAvailability("closer-default", { start: new Date().toISOString(), end: new Date().toISOString() });
+export default async function AgendaPage() {
+  const range = getDefaultCalendarDateRange();
+  const availability = await checkCalendarAvailability("closer-default", {
+    start: range.start,
+    end: range.end
+  });
   return (
     <div className="space-y-5">
       <div>
@@ -33,6 +37,7 @@ export default function AgendaPage() {
                 <Button className="mt-4 w-full" variant="secondary">Oferecer ao lead</Button>
               </div>
             ))}
+            {!availability.slots.length ? <p className="text-sm text-muted-foreground">Nenhum horário disponível ou Google Calendar ainda não configurado.</p> : null}
           </div>
         </Panel>
       </div>

@@ -11,5 +11,5 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
-  return NextResponse.json({ data: updateLeadContext(id, body) });
+  return NextResponse.json({ data: await updateLeadContext(id, body) });
 }

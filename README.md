@@ -10,7 +10,9 @@ O projeto cobre:
 - Base de cases e base de conhecimento.
 - Inbox estilo WhatsApp/CRM com controle IA/humano.
 - Playbook, templates, agenda, aprendizado operacional, relatórios e integrações.
-- APIs mockadas para evoluir para Supabase, OpenAI, WhatsApp Cloud API e Google Calendar.
+- APIs conectadas a Supabase, OpenAI, WhatsApp Cloud API e Google Calendar quando as variáveis de ambiente estão configuradas.
+
+Sem credenciais no `.env`, as telas carregam em modo vazio/configuração pendente. O sistema não simula operação real como se estivesse conectado.
 - Migration Supabase/Postgres com pgvector em `supabase/schema.sql`.
 
 ## Rodar localmente
@@ -20,4 +22,4 @@ npm install
 npm run dev
 ```
 
-Copie `.env.example` para `.env` e preencha apenas segredos técnicos quando for ligar integrações reais.
+Copie `.env.example` para `.env` e preencha apenas segredos técnicos. Cadastre uma empresa em `companies` e informe `DEFAULT_COMPANY_ID`, ou deixe o sistema usar a primeira empresa cadastrada.

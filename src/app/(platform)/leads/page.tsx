@@ -6,8 +6,8 @@ import { getLeads } from "@/lib/services/lead-service";
 
 const filters = ["Etapa", "Status", "Origem", "Responsável", "Nível de contexto", "Pronto para prospecção", "Precisa de humano", "Com reunião", "Sem telefone", "Sem contexto"];
 
-export default function LeadsPage() {
-  const leads = getLeads();
+export default async function LeadsPage() {
+  const leads = await getLeads();
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">

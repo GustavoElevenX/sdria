@@ -42,7 +42,8 @@ create table if not exists leads (
 
 create table if not exists lead_contexts (
   id uuid primary key default uuid_generate_v4(),
-  lead_id uuid references leads(id),
+  company_id uuid references companies(id),
+  lead_id uuid unique references leads(id),
   main_pain text,
   service_interest text,
   known_objections text,
@@ -54,6 +55,8 @@ create table if not exists lead_contexts (
   ai_recommended_angle text,
   ai_missing_fields jsonb,
   ai_recommended_cases jsonb,
+  ai_risks jsonb default '[]'::jsonb,
+  ai_suggested_questions jsonb default '[]'::jsonb,
   ready_for_outreach boolean default false,
   created_at timestamp default now(),
   updated_at timestamp default now()
@@ -112,6 +115,8 @@ create table if not exists conversations (
   lead_id uuid references leads(id),
   channel text default 'whatsapp',
   status text,
+  summary text,
+  next_action text,
   assigned_to uuid references profiles(id),
   last_message_at timestamp,
   created_at timestamp default now(),
@@ -161,7 +166,7 @@ create table if not exists meetings (
 
 create table if not exists agent_settings (
   id uuid primary key default uuid_generate_v4(),
-  company_id uuid references companies(id),
+  company_id uuid unique references companies(id),
   agent_name text,
   agent_role text,
   tone_of_voice text,
@@ -230,7 +235,37 @@ create table if not exists integrations (
   updated_at timestamp default now()
 );
 
+create unique index if not exists integrations_company_type_unique on integrations(company_id, type);
+
 create index if not exists leads_company_status_idx on leads(company_id, status);
 create index if not exists messages_conversation_created_idx on messages(conversation_id, created_at);
 create index if not exists learning_insights_company_status_idx on learning_insights(company_id, status);
 create index if not exists knowledge_chunks_embedding_idx on knowledge_chunks using ivfflat (embedding vector_cosine_ops);
+
+create or replace function match_knowledge_chunks(
+  query_embedding vector(1536),
+  match_company_id uuid,
+  match_count int default 5
+)
+returns table (
+  id uuid,
+  document_id uuid,
+  company_id uuid,
+  content text,
+  tags text[],
+  similarity float
+)
+language sql stable
+as $$
+  select
+    knowledge_chunks.id,
+    knowledge_chunks.document_id,
+    knowledge_chunks.company_id,
+    knowledge_chunks.content,
+    knowledge_chunks.tags,
+    1 - (knowledge_chunks.embedding <=> query_embedding) as similarity
+  from knowledge_chunks
+  where knowledge_chunks.company_id = match_company_id
+  order by knowledge_chunks.embedding <=> query_embedding
+  limit match_count;
+$$;

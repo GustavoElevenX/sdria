@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { KnowledgeDocumentCard } from "@/components/KnowledgeDocumentCard";
-import { knowledgeDocuments } from "@/lib/mock-data";
+import { getKnowledgeDocuments } from "@/lib/services/knowledge-search-service";
 
-export default function KnowledgePage() {
+export default async function KnowledgePage() {
+  const knowledgeDocuments = await getKnowledgeDocuments();
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">

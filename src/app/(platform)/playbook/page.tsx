@@ -1,8 +1,9 @@
 import { Badge } from "@/components/ui/badge";
 import { Panel, PanelHeader } from "@/components/ui/panel";
-import { messageTemplates } from "@/lib/mock-data";
+import { getMessageTemplates } from "@/lib/services/template-service";
 
-export default function PlaybookPage() {
+export default async function PlaybookPage() {
+  const messageTemplates = await getMessageTemplates();
   return (
     <div className="space-y-5">
       <div>

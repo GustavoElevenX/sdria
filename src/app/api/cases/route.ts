@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { cases } from "@/lib/mock-data";
+import { getCases, upsertCase } from "@/lib/services/case-search-service";
 
-export function GET() {
-  return NextResponse.json({ data: cases });
+export async function GET() {
+  return NextResponse.json({ data: await getCases() });
 }
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  return NextResponse.json({ data: { id: crypto.randomUUID(), ...body, active: body.active ?? true } }, { status: 201 });
+  return NextResponse.json({ data: await upsertCase(body) }, { status: 201 });
 }

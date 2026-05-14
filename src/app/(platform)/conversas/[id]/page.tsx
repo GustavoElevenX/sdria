@@ -4,10 +4,10 @@ import { getConversation, getConversationHistory, getConversations } from "@/lib
 
 export default async function ConversationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const active = getConversation(id);
+  const active = await getConversation(id);
   if (!active) notFound();
-  const conversations = getConversations();
-  const history = getConversationHistory(active.id);
+  const conversations = await getConversations();
+  const history = await getConversationHistory(active.id);
 
   return (
     <div className="space-y-5">

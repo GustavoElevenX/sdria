@@ -4,16 +4,17 @@ import { CaseCard } from "@/components/CaseCard";
 import { LeadContextPanel } from "@/components/LeadContextPanel";
 import { Button } from "@/components/ui/button";
 import { Panel, PanelHeader } from "@/components/ui/panel";
-import { cases, messages } from "@/lib/mock-data";
+import { getCases } from "@/lib/services/case-search-service";
 import { getLeadData } from "@/lib/services/lead-service";
+import { getMessagesForLead } from "@/lib/services/message-service";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = getLeadData(id);
+  const data = await getLeadData(id);
   if (!data?.lead || !data.context) notFound();
-  const relatedCases = cases.filter((caseStudy) => data.context?.aiRecommendedCases.includes(caseStudy.id));
-  const history = messages.filter((message) => message.leadId === data.lead.id);
+  const [allCases, history] = await Promise.all([getCases(), getMessagesForLead(data.lead.id)]);
+  const relatedCases = allCases.filter((caseStudy) => data.context?.aiRecommendedCases.includes(caseStudy.id));
 
   return (
     <div className="space-y-5">

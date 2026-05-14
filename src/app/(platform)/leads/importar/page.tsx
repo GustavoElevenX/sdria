@@ -1,5 +1,4 @@
-import { FileSpreadsheet, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { LeadImportForm } from "@/components/LeadImportForm";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 
 const steps = ["Upload do arquivo", "Preview das linhas", "Mapeamento de colunas", "Normalização de telefone", "Deduplicação", "Validação", "Importação", "Análise inicial de contexto"];
@@ -12,16 +11,7 @@ export default function ImportLeadsPage() {
         <h1 className="text-2xl font-semibold">Importar leads</h1>
         <p className="text-sm text-muted-foreground">CSV/XLSX com preview, deduplicação e análise de contexto após importar.</p>
       </div>
-      <Panel className="p-6">
-        <div className="grid min-h-60 place-items-center rounded-lg border border-dashed border-border bg-muted/40 p-6 text-center">
-          <div>
-            <FileSpreadsheet className="mx-auto text-primary" size={42} />
-            <h2 className="mt-4 font-semibold">Solte um CSV ou XLSX aqui</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Campos incompletos são aceitos e marcados como contexto insuficiente.</p>
-            <Button className="mt-4"><Upload size={16} /> Selecionar arquivo</Button>
-          </div>
-        </div>
-      </Panel>
+      <LeadImportForm />
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel>
           <PanelHeader title="Fluxo de importação" />

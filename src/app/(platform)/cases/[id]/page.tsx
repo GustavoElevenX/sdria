@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import { CaseCard } from "@/components/CaseCard";
 import { Panel, PanelHeader } from "@/components/ui/panel";
-import { cases } from "@/lib/mock-data";
+import { getCaseById } from "@/lib/services/case-search-service";
 
 export default async function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const caseStudy = cases.find((item) => item.id === id);
+  const caseStudy = await getCaseById(id);
   if (!caseStudy) notFound();
 
   return (

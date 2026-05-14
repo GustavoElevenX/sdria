@@ -2,9 +2,10 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { CaseCard } from "@/components/CaseCard";
 import { Button } from "@/components/ui/button";
-import { cases } from "@/lib/mock-data";
+import { getCases } from "@/lib/services/case-search-service";
 
-export default function CasesPage() {
+export default async function CasesPage() {
+  const cases = await getCases();
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
